@@ -1,0 +1,382 @@
+# -*- coding: utf-8 -*-
+"""
+@author: PC-Nutzer
+"""
+import logging
+import numpy as np
+import microscopic_data_analysis as mda
+import os
+from functools import lru_cache
+from numba import njit
+folder,file=mda.folder_file(__file__)
+os.chdir(folder)
+
+
+logpath='synthetic.log'
+logging.basicConfig(level=logging.INFO)
+fh = logging.FileHandler(logpath,mode="w")
+
+logger = logging.getLogger(__name__)
+logger.addHandler(fh)
+
+
+logger.info('##################################')
+logger.info('Synthetic flirt data: Creation Log')
+logger.info('##################################')
+
+logger.info("")
+
+names=dict()
+
+names["physical attractiveness"]=[] ######
+
+names["physical attractiveness"].append("sportive activities")
+names["physical attractiveness"].append("age")
+names["physical attractiveness"].append("bmi")
+names["physical attractiveness"].append("style / design")
+names["physical attractiveness"].append("body scent")
+names["physical attractiveness"].append("facial symmetry")
+
+
+names["social status"]=[]  ######
+
+names["social status"].append("wealth")
+names["social status"].append("educational background")
+names["social status"].append("family background")
+names["social status"].append("income")
+names["social status"].append("occupational prestige")
+names["social status"].append("health")
+
+
+names["social intelligence"]=[] ######
+
+names["social intelligence"].append("empathy")
+names["social intelligence"].append("self awareness")
+names["social intelligence"].append("active listening")
+names["social intelligence"].append("social / situational awareness")
+names["social intelligence"].append("humour")
+names["social intelligence"].append("emotional expressiveness")
+
+names["self confidence"]=[] ######
+
+names["self confidence"].append("self acceptance")
+names["self confidence"].append("stress tolerance")
+names["self confidence"].append("risk-taking willingness")
+names["self confidence"].append("humility")
+names["self confidence"].append("optimism")
+names["self confidence"].append("trustworthiness / responsiblity")
+
+
+names["rhetoric abilities / charisma"]=[]  ######
+
+names["rhetoric abilities / charisma"].append("eloquence / language usage")
+names["rhetoric abilities / charisma"].append("self control")
+names["rhetoric abilities / charisma"].append("body language")
+names["rhetoric abilities / charisma"].append("assertiveness")
+names["rhetoric abilities / charisma"].append("voice")
+names["rhetoric abilities / charisma"].append("enthusiasm")
+
+
+#%%
+
+def log_gen_correlate(beta0,beta1,epsilon):
+    logvars=[]
+    logvars.append("beta0 = "+str(beta0))
+    if hasattr(beta1, "__len__"):
+        logstring="Y  = beta0"
+        if not isinstance(epsilon, np.ndarray):
+            standard=True
+        for i in range(len(beta1)):
+            logvars.append("beta"+str(i+1)+" = "+str(beta1[i]))
+            logstring+=" + beta"+str(i+1)+"*X"+str(i+1)
+        if standard:
+            logvars.append("epsilon = normal_distribution( mu = 0 , sigma = "+str(epsilon)+" )")
+        logstring+=" + epsilon"
+    else:    
+        logstring="Y  = beta0 + beta1*X + epsilon"
+        logvars.append("beta1 = "+str(beta1))
+        if not isinstance(epsilon, np.ndarray):
+            logvars.append("epsilon = normal_distribution( mu = 0 , sigma = "+str(epsilon)+" )")
+    
+    logger.info("    " +logstring)
+    for i in logvars:
+        logger.info("    " +i)
+    logger.info("")
+
+    
+def gen_correlate(X,beta0,beta1,epsilon):
+    
+    log_gen_correlate(beta0, beta1, epsilon)
+    
+    if hasattr(beta1, "__len__"):
+        if not isinstance(epsilon, np.ndarray):
+            epsilon=np.random.normal(0,epsilon,len(X[0]))
+        
+        Y=np.zeros(len(X[0]))+beta0
+        for i in range(len(beta1)):
+            Y+= beta1[i]*X[i]
+    else:
+        if not isinstance(epsilon, np.ndarray):
+            epsilon=np.random.normal(0,epsilon,len(X))
+        
+        Y=beta0+beta1*X
+
+    return Y+epsilon
+    
+def log_gen_moderate(beta0,beta1,beta2,beta3,epsilon):
+    logstring="Y  = beta0 + beta1*X1 + beta2*X2 + beta3*X1*X2 + epsilon"
+    logvars=["beta0 = "+str(beta0)]
+    logvars.append("beta1 = "+str(beta1))
+    logvars.append("beta2 = "+str(beta2))
+    logvars.append("beta3 = "+str(beta3))
+
+    if not isinstance(epsilon, np.ndarray):
+        logvars.append("epsilon = normal_distribution( mu = 0 , sigma = "+str(epsilon)+" )")
+
+    logger.info("    " +logstring)
+    for i in logvars:
+        logger.info("    " +i)
+    logger.info("")
+    
+def gen_moderate(X1,X2,beta0,beta1,beta2,beta3,epsilon):
+
+    log_gen_moderate(beta0, beta1,beta2,beta3, epsilon)
+    if not isinstance(epsilon, np.ndarray):
+        epsilon=np.random.normal(0,epsilon,len(X1))
+
+    return beta0+beta1*X1+beta2*X2+beta3*X1*X2+epsilon
+
+   
+def z_transform(X):
+    return (X-np.mean(X))/np.std(X)
+
+def log_normal_dist(mu,sigma):
+    logger.info("generated by a normal distribution with mean mu and standard deviation sigma")
+    logger.info("    mu = "+str(mu))
+    logger.info("    sigma = "+str(sigma))
+    logger.info("")
+
+    
+def normal_dist(mu,sigma,N):
+    log_normal_dist(mu, sigma)
+    return np.random.normal(mu,sigma,N)
+
+#%%
+popsize=10000
+scales=5
+ratio=1/scales
+subscales=6
+epsilons=[0.5,1,2,4,8]
+
+
+beta=np.random.uniform(-2,2,18)
+beta[1]=np.abs(beta[1])
+beta[3]=np.abs(beta[3])
+
+logger.info("all input parameters (betas and for variables mu and sigma)")
+logger.info(str(beta))
+logger.info("")
+logger.info("all input noise levels for epsilons mu and sigma")
+logger.info(str(epsilons))
+logger.info("")
+
+logger.info("")
+logger.info("detailed description")
+logger.info("")
+
+
+subscaledata=[]
+scale_means=np.empty([popsize,scales])
+
+nameskeylist=list(names.keys())
+for i in range(scales):
+    logger.info("")
+    logger.info(nameskeylist[i])
+    logger.info("-------------------------------------------------------------------------------------")
+    logger.info("")
+    
+    epsilon=epsilons[i]
+
+    logger.info(names[nameskeylist[i]][0])
+    a=normal_dist(beta[0],beta[1],popsize)
+    az=z_transform(a)
+    
+    logger.info(names[nameskeylist[i]][1])
+    b=normal_dist(beta[2],beta[3],popsize)
+    bz=z_transform(b)
+    
+    logger.info(names[nameskeylist[i]][2])
+    logger.info("dependent on variables:")
+    logger.info("    X1 = "+names[nameskeylist[i]][0])
+    logger.info("    X2 = "+names[nameskeylist[i]][1])
+    c=gen_correlate([az,bz], beta[4], beta[5:7], epsilon)
+    cz=z_transform(c)
+
+    logger.info(names[nameskeylist[i]][3])
+    logger.info("dependent on variables:")
+    logger.info("    X1 = "+names[nameskeylist[i]][0])
+    logger.info("    X2 = "+names[nameskeylist[i]][1])
+    d=gen_moderate(az, bz, beta[7], beta[8], beta[9], beta[10], epsilon)
+    dz=z_transform(d)
+
+    logger.info(names[nameskeylist[i]][4])
+    logger.info("dependent on variables:")
+    logger.info("    X1 = "+names[nameskeylist[i]][1])
+    logger.info("    X2 = "+names[nameskeylist[i]][2])
+    e=gen_correlate([bz,cz], beta[11], beta[12:14], epsilon)
+    ez=z_transform(e)
+    
+    logger.info(names[nameskeylist[i]][5])
+    logger.info("dependent on variables:")
+    logger.info("    X1 = "+names[nameskeylist[i]][0])
+    logger.info("    X2 = "+names[nameskeylist[i]][4])
+    f=gen_moderate(az, ez, beta[14], beta[15], beta[16], beta[17], epsilon)
+    fz=z_transform(f)
+    scale_mean=(az+bz+cz+dz+ez+fz)/subscales
+ 
+    scale_means[:,i]=scale_mean
+    subscaledata.append(np.array((a,b,c,d,e,f)).T)
+    
+props=scale_means
+#%%
+@lru_cache(maxsize=1000, typed=False)
+def rolled_pairs(shift,N):
+    leng=int((N+1)/2)
+    if shift==1:
+        res=np.arange(leng)*2
+    elif shift>1:
+        #res=rolledp(shift,leng)
+        res=np.zeros(leng,dtype=int)
+        pattern=np.ones(shift,dtype=int)
+        pattern[-1]=shift+1
+        for i in range(leng-1):
+            res[i+1]=res[i]+pattern[i%shift]
+    return res#.astype(int)
+
+#%%
+@njit
+def rolledp(shift,leng):
+    res=np.zeros(leng)#,dtype=int)
+    pattern=np.ones(shift)#,dtype=int)
+    pattern[-1]=shift+1
+    for i in range(leng-1):
+        res[i+1]=res[i]+pattern[i%shift]
+    return res
+
+#%%
+
+def propose_group_merges(groups,shift=1):
+    keylist=np.array(list(groups.keys()))
+    
+    pattern=rolled_pairs(shift,len(keylist))
+    first=keylist[pattern]
+    rolled=np.roll(keylist,shift)
+    
+    merges=[i for i in zip(first,rolled)]
+    return np.array(merges)
+
+def check_and_execute_merge(merges,groups,props,ratio):
+    counter=0    
+    deletedgroups=dict()
+    for i in merges:
+        if i[0] in deletedgroups:
+            first=deletedgroups[i[0]]
+        else:
+            first=i[0]
+        if i[1] in deletedgroups:
+            second=deletedgroups[i[1]]
+        else:
+            second=i[1]
+
+        group_members=groups[first]["members"]+groups[second]["members"]
+
+        groupordering=np.argsort(-props[group_members],axis=0).T
+        groupthresh=int(ratio*len(group_members)+1)
+        best=groupordering[:,:groupthresh]
+        merge_cond=True
+        for j in range(len(group_members)):
+            if j not in best:
+                merge_cond=False 
+                break
+        if merge_cond:
+            counter +=1
+            groups[first]["members"]=group_members
+            deletedgroups[second]=first
+            del groups[second]
+    return groups,counter
+
+        
+#%%
+
+
+groups=dict()
+
+for i in range(popsize):
+    groups[i]=dict()
+    groups[i]["members"]=[i]
+
+
+condition=True
+counter2=0
+shift=1
+
+while condition:# and counter2<10000:
+    counter2+=1
+    if counter2%100==0:
+        print(len(groups))
+        print(shift)
+    proposed_merge=propose_group_merges(groups,shift)
+
+    groups,counter=check_and_execute_merge(proposed_merge, groups, props,ratio)
+    if counter==0:
+        shift+=1
+        if shift>len(groups):
+            condition=False
+            print("converged")
+    else:
+        shift=1
+
+#%%
+groupnumbers=np.empty(popsize)
+for c,i in enumerate(groups):
+    for j in groups[i]["members"]:
+        groupnumbers[j]=c
+
+#%%
+
+result=np.empty([popsize,scales*subscales+scales+1])
+
+result[:,0]=groupnumbers
+
+result[:,1]=scale_means[:,0]
+result[:,2:8]=subscaledata[0]
+
+result[:,8]=scale_means[:,1]
+result[:,9:15]=subscaledata[1]
+
+result[:,15]=scale_means[:,2]
+result[:,16:22]=subscaledata[2]
+
+result[:,22]=scale_means[:,3]
+result[:,23:29]=subscaledata[3]
+
+result[:,29]=scale_means[:,4]
+result[:,30:36]=subscaledata[4]
+
+
+#%%
+
+header="clique"
+delimiter=" , "
+
+for i in names:
+    header+= delimiter+i
+    for j in names[i]:
+        header+= delimiter + j
+
+#%%
+np.savetxt("synthetic_flirt_data.csv",result,header=header,delimiter=",")
+
+#%%
+logger.removeHandler(fh)
+logging.shutdown()
