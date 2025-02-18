@@ -2,6 +2,7 @@
 
 import numpy as np
 import os
+import random
 
 def folder_file(path_string):
     """
@@ -182,6 +183,8 @@ for i in range(popsize):
 shift=1
 first=True
 
+groupkeylist=np.array(list(groups.keys()))
+
 counter=0
 while True:
     counter+=1
@@ -191,7 +194,9 @@ while True:
         
     if len(groups)==1:
         break
-    proposed_merge=dgf.propose_group_merges(groups,shift,first)
+    
+
+    proposed_merge=dgf.propose_group_merges(groupkeylist,shift,first)
 
     groups,number_of_merges=dgf.check_and_execute_merge(proposed_merge, groups, props,ratio)
     
@@ -210,6 +215,10 @@ while True:
     else:
         shift=1
         first=True
+        groupkeylist=list(groups.keys())
+        shuffled_list=random.sample(groupkeylist,len(groupkeylist))
+        groupkeylist=np.array(shuffled_list)
+        
 
 #%% 
 groupnumbers=np.empty(popsize,dtype=int)

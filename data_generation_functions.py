@@ -122,8 +122,7 @@ def _shiftroll(shift,N):
     return res
 
 
-def propose_group_merges(groups,shift=1,first=True):
-    keylist=np.array(list(groups.keys()))
+def propose_group_merges(keylist,shift=1,first=True):
     
     pattern=np.array(_shiftroll(shift,len(keylist)),dtype=int)
     if not first:
