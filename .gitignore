@@ -11,3 +11,4 @@ docs/_build
 *.csv
 *.log
 *.zip
+*.h5
